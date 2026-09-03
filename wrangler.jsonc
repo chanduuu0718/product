@@ -13,7 +13,7 @@
     {
       "binding": "DB",
       "database_name": "upcha-products",
-      "database_id": "REPLACE_WITH_D1_DATABASE_ID"
+      "database_id": "8423c017-05c1-40bc-8ff5-3dbdca60e2ff"
     }
   ],
   "r2_buckets": [
