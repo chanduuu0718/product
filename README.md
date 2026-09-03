@@ -7,7 +7,7 @@ A full-stack affiliate product publishing portal designed for Instagram traffic.
 ### Public customer experience
 - No customer login or registration.
 - Enter a product code to open a published product.
-- Direct links also work with `/?code=PRODUCTCODE`.
+- Direct links work with `/?code=PRODUCTCODE`.
 - Mobile-first white/clean product page.
 - Up to 4 product images with swipe/previous/next controls.
 - Selling price, original price, savings and description.
@@ -41,10 +41,17 @@ For development, use `npm run dev` to start Vite and the API together.
 
 `ADMIN_USER` controls the admin username. `ADMIN_PASSWORD_HASH` is a bcrypt hash of the admin password. `JWT_SECRET` must be a long random secret in production. Never commit `.env` or real credentials.
 
-## Storage
+`APP_DATA_DIR` controls where SQLite and uploaded images are stored. Locally it defaults to `./data`; in the included Render deployment blueprint it is `/var/data` on a persistent disk.
 
-Products are stored in SQLite at `data/products.db`. Uploaded images are stored under `uploads/`. These directories are intentionally ignored from Git. For production, deploy the app on persistent storage or replace the storage layer with managed database/object storage.
+## Production deployment
 
-## Deployment
+The repository includes `render.yaml` for a single-service Render deployment. It builds the Vite app, starts the Express server, exposes `/api/health` for health checks, and mounts persistent storage for the SQLite database and uploaded images.
 
-The repository includes a GitHub Actions build check. A production host should run `npm install`, `npm run build`, then `npm start`, with the environment variables configured securely and persistent storage mounted for `data/` and `uploads/`.
+1. Push the repository to GitHub.
+2. In Render, create a new Blueprint and select this repository. Render will read `render.yaml`.
+3. Before the first deploy, set `ADMIN_PASSWORD_HASH` to a bcrypt hash for the password you want to use. Do not put the plaintext password or its hash into GitHub.
+4. Deploy. Render provides the public HTTPS URL.
+5. Open `<your-render-url>/#admin` to manage products.
+6. Share `<your-render-url>/?code=PRODUCTCODE` in Instagram.
+
+For the included persistent-disk configuration, the service uses `/var/data` for `products.db` and `uploads/`. Back up this storage before making major production changes.
