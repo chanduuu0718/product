@@ -34,7 +34,7 @@ The recommended zero-cost architecture is **Cloudflare Workers + D1 + R2**:
 - R2 stores uploaded product images.
 - No Render persistent disk is required.
 
-Cloudflare's current Free limits include 100,000 Worker requests/day, D1 with 5 million rows read/day, 100,000 rows written/day and 5 GB total account storage, plus R2's free Standard tier of 10 GB-month storage, 1 million Class A operations/month and 10 million Class B operations/month. Static assets are free and unlimited. These limits are usage limits; exceeding them can stop free-tier requests or require an upgrade. See the Cloudflare pricing documentation for current limits.
+Cloudflare's current Free limits include 100,000 Worker requests/day, D1 with 5 million rows read/day, 100,000 rows written/day and 5 GB total account storage, plus R2's free Standard tier of 10 GB-month storage, 1 million Class A operations/month and 10 million Class B operations/month. Static assets are free and unlimited. These limits are usage limits; exceeding them can stop free-tier requests or require an upgrade.
 
 ### One-time setup
 
@@ -61,11 +61,11 @@ Cloudflare's current Free limits include 100,000 Worker requests/day, D1 with 5 
    `npm run cf:deploy`
 12. Wrangler will print the public `workers.dev` URL. Open `<your-url>/#admin` to sign in.
 
-The first admin account is created automatically from `ADMIN_USER` (default `admin`) and `ADMIN_BOOTSTRAP_PASSWORD`. The password is stored as a salted PBKDF2 hash in D1, not as plaintext. After signing in, use the password-change API if you add a UI for it; changing the secret alone does not overwrite an existing admin account.
+The first admin account is created automatically from `ADMIN_USER` (default `admin`) and `ADMIN_BOOTSTRAP_PASSWORD`. The password is stored as a salted PBKDF2 hash in D1, not as plaintext. Changing the bootstrap secret later does not overwrite an existing admin account.
 
 ### Important free-tier note
 
-As of September 1, 2026, Cloudflare enforces D1's Free daily row-read and row-write limits. If those limits are exceeded, D1 requests fail until the daily reset. citeturn0search6
+Cloudflare began enforcing D1's Free daily row-read and row-write limits on September 1, 2026. If those limits are exceeded, D1 requests fail until the daily reset.
 
 ### Local development
 
