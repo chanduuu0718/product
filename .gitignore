@@ -2,7 +2,11 @@ node_modules/
 .next/
 out/
 dist/
+data/
+uploads/
 .env
 .env.local
-.DS_Store
 *.log
+.DS_Store
+.wrangler/
+.dev.vars
