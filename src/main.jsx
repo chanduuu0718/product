@@ -1,105 +1,53 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ChevronLeft, ChevronRight, Copy, ExternalLink, ImagePlus, LayoutDashboard, Link2, LogOut, Pencil, Plus, Search, Trash2, UploadCloud } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Copy, ExternalLink, ImagePlus, LayoutDashboard, LogOut, Pencil, Plus, Search, Trash2, UploadCloud, X } from 'lucide-react';
 import './styles.css';
 
-const seedProducts = [
-  { id: 1, code: 'UPCHA123', name: 'Minimal Everyday Sneakers', price: 1499, originalPrice: 2999, description: 'Comfort-first everyday sneakers with a clean, versatile finish.', images: ['https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1200&q=80','https://images.unsplash.com/photo-1552346154-21d32810aba3?auto=format&fit=crop&w=1200&q=80','https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1200&q=80'], affiliateUrl: 'https://example.com/affiliate/sneakers', status: 'Published' },
-  { id: 2, code: 'UPCHA456', name: 'Classic Smart Watch', price: 999, originalPrice: 1999, description: 'Simple smart features for daily use with a lightweight profile.', images: ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=1200&q=80'], affiliateUrl: 'https://example.com/affiliate/watch', status: 'Draft' },
-];
+const api = async (url, options = {}) => { const r = await fetch(url, options); const data = await r.json().catch(() => ({})); if (!r.ok) throw new Error(data.error || 'Something went wrong'); return data; };
 
 function App() {
-  const [mode, setMode] = useState('public');
-  const [products, setProducts] = useState(seedProducts);
-  const [query, setQuery] = useState('');
-  const [code, setCode] = useState('');
-  const [selected, setSelected] = useState(null);
+  const [mode, setMode] = useState(window.location.hash === '#admin' ? 'admin' : 'public');
+  const [code, setCode] = useState(new URLSearchParams(window.location.search).get('code') || '');
+  const [product, setProduct] = useState(null);
+  const [error, setError] = useState('');
   const [toast, setToast] = useState('');
-
-  const product = selected || products.find((item) => item.code.toLowerCase() === code.trim().toLowerCase() && item.status === 'Published');
-
-  const filtered = useMemo(() => products.filter((item) => [item.code, item.name].join(' ').toLowerCase().includes(query.toLowerCase())), [products, query]);
-
-  function showToast(message) { setToast(message); window.setTimeout(() => setToast(''), 2200); }
-  function findProduct(e) { e.preventDefault(); const found = products.find((item) => item.code.toLowerCase() === code.trim().toLowerCase() && item.status === 'Published'); setSelected(found || null); if (!found) showToast('Product code not found.'); }
-  function copyProductLink(p) { navigator.clipboard?.writeText(window.location.origin + '/?code=' + encodeURIComponent(p.code)); showToast('Product link copied.'); }
-
+  useEffect(() => { if (code) loadProduct(code); }, []);
+  async function loadProduct(value) { setError(''); try { const p = await api('/api/products/' + encodeURIComponent(value.trim())); setProduct(p); history.replaceState({}, '', '/?code=' + encodeURIComponent(p.code)); } catch { setProduct(null); setError('Product code not found.'); } }
+  function switchMode(next) { setMode(next); history.replaceState({}, '', next === 'admin' ? '#admin' : '/'); }
+  function toastMessage(m) { setToast(m); setTimeout(() => setToast(''), 2400); }
   return <div className="app">
-    {mode === 'public' ? <PublicPage product={product} code={code} setCode={setCode} onFind={findProduct} onBack={() => { setSelected(null); setCode(''); }} /> : <AdminPage products={products} setProducts={setProducts} filtered={filtered} query={query} setQuery={setQuery} onCopy={copyProductLink} showToast={showToast} />}
-    <button className="admin-switch" onClick={() => setMode(mode === 'public' ? 'admin' : 'public')} aria-label="Switch view">{mode === 'public' ? <LayoutDashboard size={17}/> : <ExternalLink size={17}/>} {mode === 'public' ? 'Admin' : 'Public'}</button>
+    {mode === 'public' ? <PublicPage code={code} setCode={setCode} product={product} error={error} onFind={(e)=>{e.preventDefault();loadProduct(code)}} onBack={()=>{setProduct(null);setCode('');history.replaceState({},'', '/')}} /> : <AdminPage toastMessage={toastMessage} />}
+    <button className="admin-switch" onClick={()=>switchMode(mode === 'public' ? 'admin' : 'public')}>{mode === 'public' ? <><LayoutDashboard size={16}/> Admin</> : <><ExternalLink size={16}/> Public</>}</button>
     {toast && <div className="toast">{toast}</div>}
   </div>;
 }
 
-function PublicPage({ product, code, setCode, onFind, onBack }) {
-  return <main className="public-shell">
-    <div className="brand">UPCHA</div>
-    {!product ? <section className="lookup-card">
-      <div className="eyebrow">PRODUCT ACCESS</div>
-      <h1>Enter your product code</h1>
-      <p>Use the code shared with you on Instagram to open the product.</p>
-      <form onSubmit={onFind} className="lookup-form">
-        <label htmlFor="code">Product code</label>
-        <input id="code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="e.g. UPCHA123" autoComplete="off" />
-        <button type="submit">GET PRODUCT <ExternalLink size={17}/></button>
-      </form>
-      <div className="trust-row"><span>✓ No login required</span><span>✓ Secure redirect</span></div>
-    </section> : <ProductView product={product} onBack={onBack} />}
-    <footer>Affiliate product showcase · Prices and availability may change on the seller website.</footer>
-  </main>;
+function PublicPage({ code, setCode, product, error, onFind, onBack }) {
+  return <main className="public-shell"><div className="brand">UPCHA</div>
+    {!product ? <section className="lookup-card"><div className="eyebrow">PRODUCT ACCESS</div><h1>Enter your product code</h1><p>Use the code shared with you on Instagram to open the product.</p><form onSubmit={onFind} className="lookup-form"><label htmlFor="code">Product code</label><input id="code" value={code} onChange={e=>setCode(e.target.value.toUpperCase())} placeholder="e.g. UPCHA123" autoComplete="off"/><button>GET PRODUCT <ExternalLink size={17}/></button>{error && <div className="error">{error}</div>}</form><div className="trust-row"><span>✓ No login required</span><span>✓ Secure seller redirect</span></div></section> : <ProductView product={product} onBack={onBack}/>}<footer>Affiliate product showcase · Prices and availability may change on the seller website.</footer></main>;
 }
 
-function ProductView({ product, onBack }) {
-  const [index, setIndex] = useState(0);
-  const next = () => setIndex((index + 1) % product.images.length);
-  const prev = () => setIndex((index - 1 + product.images.length) % product.images.length);
-  return <section className="product-layout">
-    <button className="back-btn" onClick={onBack}><ChevronLeft size={17}/> Back</button>
-    <div className="product-image-wrap">
-      <img src={product.images[index]} alt={product.name} className="product-image" />
-      {product.images.length > 1 && <><button className="image-nav left" onClick={prev}><ChevronLeft/></button><button className="image-nav right" onClick={next}><ChevronRight/></button></>}
-      <div className="dots">{product.images.map((_, i) => <button key={i} onClick={() => setIndex(i)} className={i === index ? 'dot active' : 'dot'} aria-label={'Show image ' + (i + 1)} />)}</div>
-    </div>
-    <div className="product-info">
-      <div className="pill">CODE · {product.code}</div>
-      <h1>{product.name}</h1>
-      <div className="price-row"><strong>₹{product.price.toLocaleString('en-IN')}</strong><del>₹{product.originalPrice.toLocaleString('en-IN')}</del></div>
-      <div className="save">Save ₹{(product.originalPrice - product.price).toLocaleString('en-IN')}</div>
-      <p className="description">{product.description}</p>
-      <a className="buy-btn" href={product.affiliateUrl} target="_blank" rel="noreferrer">BUY NOW <ExternalLink size={18}/></a>
-      <p className="redirect-note">You will be redirected to the seller to complete your purchase.</p>
-    </div>
-  </section>;
+function ProductView({product,onBack}) { const [index,setIndex]=useState(0); const next=()=>setIndex(i=>(i+1)%product.images.length); const prev=()=>setIndex(i=>(i-1+product.images.length)%product.images.length); async function buy(){ try { const r=await api('/api/products/'+encodeURIComponent(product.code)+'/click',{method:'POST'}); window.location.href=r.url; } catch(e){} }
+  return <section className="product-layout"><button className="back-btn" onClick={onBack}><ChevronLeft size={17}/> Back</button><div className="product-image-wrap"><img src={product.images[index]} alt={product.name} className="product-image"/>{product.images.length>1&&<><button className="image-nav left" onClick={prev}><ChevronLeft/></button><button className="image-nav right" onClick={next}><ChevronRight/></button></>}<div className="dots">{product.images.map((_,i)=><button key={i} onClick={()=>setIndex(i)} className={i===index?'dot active':'dot'} aria-label={'Image '+(i+1)}/>)}</div></div><div className="product-info"><div className="pill">CODE · {product.code}</div><h1>{product.name}</h1><div className="price-row"><strong>₹{Number(product.price).toLocaleString('en-IN')}</strong>{Number(product.originalPrice)>Number(product.price)&&<del>₹{Number(product.originalPrice).toLocaleString('en-IN')}</del>}</div>{Number(product.originalPrice)>Number(product.price)&&<div className="save">Save ₹{(Number(product.originalPrice)-Number(product.price)).toLocaleString('en-IN')}</div>}<p className="description">{product.description}</p><button className="buy-btn" onClick={buy}>BUY NOW <ExternalLink size={18}/></button><p className="redirect-note">You will be redirected to the seller to complete your purchase.</p></div></section>;
 }
 
-function AdminPage({ products, setProducts, filtered, query, setQuery, onCopy, showToast }) {
-  const [editing, setEditing] = useState(null);
-  const blank = { id: Date.now(), code: '', name: '', price: '', originalPrice: '', description: '', images: [], affiliateUrl: '', status: 'Draft' };
-  const [draft, setDraft] = useState(blank);
-
-  function openNew() { setEditing('new'); setDraft({ ...blank, id: Date.now() }); }
-  function openEdit(p) { setEditing(p.id); setDraft({ ...p }); }
-  function save(e) { e.preventDefault(); if (!draft.code || !draft.name || !draft.price || !draft.affiliateUrl || !draft.images.length) { showToast('Add code, name, price, affiliate link and at least one image.'); return; } setProducts((list) => editing === 'new' ? [{ ...draft, price: Number(draft.price), originalPrice: Number(draft.originalPrice || draft.price) }, ...list] : list.map((p) => p.id === editing ? { ...draft, price: Number(draft.price), originalPrice: Number(draft.originalPrice || draft.price) } : p)); setEditing(null); showToast(editing === 'new' ? 'Product published to dashboard.' : 'Product updated.'); }
-  function remove(id) { setProducts((list) => list.filter((p) => p.id !== id)); showToast('Product deleted.'); }
-
-  return <main className="admin-shell">
-    <header className="admin-header"><div><div className="brand dark">UPCHA</div><div className="admin-title">Product Control Center</div></div><button className="primary-btn" onClick={openNew}><Plus size={18}/> Add product</button></header>
-    <section className="stats"><Stat label="Total products" value={products.length}/><Stat label="Published" value={products.filter(p => p.status === 'Published').length}/><Stat label="Drafts" value={products.filter(p => p.status === 'Draft').length}/><Stat label="Image slots" value={products.reduce((n,p) => n + p.images.length, 0)}/></section>
-    <section className="panel">
-      <div className="panel-top"><div><h2>Products</h2><p>Manage codes, pricing, images and affiliate destinations.</p></div><div className="search"><Search size={17}/><input placeholder="Search by code or name" value={query} onChange={e => setQuery(e.target.value)} /></div></div>
-      <div className="table-wrap"><table><thead><tr><th>Product</th><th>Code</th><th>Price</th><th>Images</th><th>Status</th><th></th></tr></thead><tbody>{filtered.map((p) => <tr key={p.id}><td><div className="product-cell"><img src={p.images[0]} alt=""/><span>{p.name}</span></div></td><td><span className="code">{p.code}</span></td><td>₹{Number(p.price).toLocaleString('en-IN')}</td><td>{p.images.length}/4</td><td><span className={'status ' + p.status.toLowerCase()}>{p.status}</span></td><td><div className="actions"><button onClick={() => onCopy(p)} title="Copy public link"><Copy size={16}/></button><button onClick={() => openEdit(p)} title="Edit"><Pencil size={16}/></button><button onClick={() => remove(p.id)} title="Delete"><Trash2 size={16}/></button></div></td></tr>)}</tbody></table></div>
-    </section>
-    {editing && <div className="modal-backdrop"><form className="modal" onSubmit={save}><div className="modal-head"><div><div className="eyebrow">ADMIN · PRODUCT</div><h2>{editing === 'new' ? 'Publish a product' : 'Edit product'}</h2></div><button type="button" onClick={() => setEditing(null)} className="icon-btn">×</button></div>
-      <div className="form-grid"><Field label="Product code" value={draft.code} onChange={v => setDraft({...draft, code:v.toUpperCase()})} placeholder="UPCHA123"/><Field label="Product name" value={draft.name} onChange={v => setDraft({...draft, name:v})} placeholder="Product name"/><Field label="Selling price" value={draft.price} onChange={v => setDraft({...draft, price:v})} placeholder="1499" type="number"/><Field label="Original price" value={draft.originalPrice} onChange={v => setDraft({...draft, originalPrice:v})} placeholder="2999" type="number"/></div>
-      <label className="field"><span>Description</span><textarea value={draft.description} onChange={e => setDraft({...draft, description:e.target.value})} placeholder="Short product description" /></label>
-      <label className="field"><span>Affiliate link</span><div className="input-icon"><Link2 size={17}/><input value={draft.affiliateUrl} onChange={e => setDraft({...draft, affiliateUrl:e.target.value})} placeholder="https://..." /></div></label>
-      <div className="field"><span>Product images <em>Maximum 4</em></span><div className="image-slots">{[0,1,2,3].map((i) => <div className="slot" key={i}>{draft.images[i] ? <img src={draft.images[i]} alt=""/> : <><ImagePlus size={21}/><small>Image {i+1}</small></>}{draft.images[i] && <button type="button" onClick={() => setDraft({...draft, images:draft.images.filter((_,idx)=>idx!==i)})}>×</button>}</div>)}</div><div className="url-upload"><UploadCloud size={17}/><input placeholder="Paste image URL to add" onKeyDown={e => { if(e.key === 'Enter'){ e.preventDefault(); const val=e.currentTarget.value.trim(); if(val && draft.images.length<4){ setDraft({...draft, images:[...draft.images,val]}); e.currentTarget.value=''; } }}}/><span>Press Enter</span></div></div>
-      <div className="publish-row"><label className="switchline"><input type="checkbox" checked={draft.status === 'Published'} onChange={e => setDraft({...draft,status:e.target.checked?'Published':'Draft'})}/><span>Publish now</span></label><button className="primary-btn" type="submit">{editing === 'new' ? 'Publish product' : 'Save changes'}</button></div>
-    </form></div>}
-  </main>;
+function AdminPage({toastMessage}) { const [authed,setAuthed]=useState(false); const [checking,setChecking]=useState(true); const [products,setProducts]=useState([]); const [query,setQuery]=useState(''); const [editing,setEditing]=useState(null); const [draft,setDraft]=useState(null); const [busy,setBusy]=useState(false);
+  useEffect(()=>{api('/api/auth/me').then(()=>{setAuthed(true);return load()}).catch(()=>{}).finally(()=>setChecking(false))},[]);
+  async function load(){try{setProducts(await api('/api/admin/products'))}catch(e){toastMessage(e.message)}}
+  function openNew(){setDraft({code:'',name:'',price:'',originalPrice:'',description:'',affiliateUrl:'',images:[],status:'Draft'});setEditing('new')}
+  function openEdit(p){setDraft({...p});setEditing(p.id)}
+  async function save(e){e.preventDefault();if(!draft.code||!draft.name||draft.price===''||!draft.affiliateUrl||draft.images.length<1)return toastMessage('Code, name, price, affiliate link and 1–4 images are required.');setBusy(true);try{const body={...draft,price:Number(draft.price),originalPrice:Number(draft.originalPrice||draft.price)};const p=editing==='new'?await api('/api/admin/products',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}):await api('/api/admin/products/'+editing,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});setProducts(list=>editing==='new'?[p,...list]:list.map(x=>x.id===p.id?p:x));setEditing(null);toastMessage('Product saved.')}catch(e){toastMessage(e.message)}finally{setBusy(false)}}
+  async function remove(id){if(!confirm('Delete this product?'))return;try{await api('/api/admin/products/'+id,{method:'DELETE'});setProducts(list=>list.filter(p=>p.id!==id));toastMessage('Product deleted.')}catch(e){toastMessage(e.message)}}
+  async function logout(){await api('/api/auth/logout',{method:'POST'});setAuthed(false)}
+  const filtered=useMemo(()=>products.filter(p=>(p.code+' '+p.name).toLowerCase().includes(query.toLowerCase())),[products,query]);
+  if(checking)return <div className="admin-loading">Loading admin…</div>; if(!authed)return <Login onLogin={async()=>{setAuthed(true);await load()}} toastMessage={toastMessage}/>;
+  return <main className="admin-shell"><header className="admin-header"><div><div className="brand dark">UPCHA</div><div className="admin-title">Product Control Center</div></div><div className="header-actions"><button className="secondary-btn" onClick={logout}><LogOut size={16}/> Sign out</button><button className="primary-btn" onClick={openNew}><Plus size={18}/> Add product</button></div></header><section className="stats"><Stat label="Total products" value={products.length}/><Stat label="Published" value={products.filter(p=>p.status==='Published').length}/><Stat label="Drafts" value={products.filter(p=>p.status==='Draft').length}/><Stat label="Affiliate clicks" value={products.reduce((n,p)=>n+Number(p.clicks||0),0)}/></section><section className="panel"><div className="panel-top"><div><h2>Products</h2><p>Manage product codes, images, pricing and affiliate destinations.</p></div><div className="search"><Search size={17}/><input placeholder="Search by code or name" value={query} onChange={e=>setQuery(e.target.value)}/></div></div><div className="table-wrap"><table><thead><tr><th>Product</th><th>Code</th><th>Price</th><th>Images</th><th>Clicks</th><th>Status</th><th>Actions</th></tr></thead><tbody>{filtered.map(p=><tr key={p.id}><td><div className="product-cell"><img src={p.images[0]} alt=""/><span>{p.name}</span></div></td><td><span className="code">{p.code}</span></td><td>₹{Number(p.price).toLocaleString('en-IN')}</td><td>{p.images.length}/4</td><td>{p.clicks||0}</td><td><span className={'status '+p.status.toLowerCase()}>{p.status}</span></td><td><div className="actions"><button onClick={()=>{navigator.clipboard?.writeText(location.origin+'/?code='+encodeURIComponent(p.code));toastMessage('Public link copied.')}} title="Copy public link"><Copy size={16}/></button><button onClick={()=>openEdit(p)} title="Edit"><Pencil size={16}/></button><button onClick={()=>remove(p.id)} title="Delete"><Trash2 size={16}/></button></div></td></tr>)}</tbody></table></div></section>{editing&&<ProductModal draft={draft} setDraft={setDraft} editing={editing} setEditing={setEditing} save={save} busy={busy} toastMessage={toastMessage}/>}</main>;
 }
 
-function Field({label,value,onChange,placeholder,type='text'}) { return <label className="field"><span>{label}</span><input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}/></label>; }
-function Stat({label,value}) { return <div className="stat"><span>{label}</span><strong>{value}</strong></div>; }
+function Login({onLogin,toastMessage}){const [username,setUsername]=useState('');const [password,setPassword]=useState('');const [busy,setBusy]=useState(false);async function submit(e){e.preventDefault();setBusy(true);try{await api('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});await onLogin()}catch(e){toastMessage(e.message)}finally{setBusy(false)}}return <main className="login-shell"><div className="login-card"><div className="brand">UPCHA</div><div className="eyebrow">ADMIN PORTAL</div><h1>Welcome back</h1><p>Sign in to publish and manage products.</p><form onSubmit={submit} className="login-form"><Field label="Username" value={username} onChange={setUsername} placeholder="Admin username"/><Field label="Password" value={password} onChange={setPassword} placeholder="Admin password" type="password"/><button className="primary-btn" disabled={busy}>{busy?'Signing in…':'Sign in'}</button></form></div></main>}
 
+function ProductModal({draft,setDraft,editing,setEditing,save,busy,toastMessage}){async function upload(e){const files=[...e.target.files];if(files.length+draft.images.length>4)return toastMessage('Maximum 4 images.');const fd=new FormData();files.forEach(f=>fd.append('images',f));try{const r=await api('/api/admin/upload',{method:'POST',body:fd});setDraft({...draft,images:[...draft.images,...r.images]})}catch(e){toastMessage(e.message)}e.target.value=''}return <div className="modal-backdrop"><form className="modal" onSubmit={save}><div className="modal-head"><div><div className="eyebrow">ADMIN · PRODUCT</div><h2>{editing==='new'?'Publish a product':'Edit product'}</h2></div><button type="button" className="icon-btn" onClick={()=>setEditing(null)}><X/></button></div><div className="form-grid"><Field label="Product code" value={draft.code} onChange={v=>setDraft({...draft,code:v.toUpperCase()})} placeholder="UPCHA123"/><Field label="Product name" value={draft.name} onChange={v=>setDraft({...draft,name:v})} placeholder="Product name"/><Field label="Selling price" value={draft.price} onChange={v=>setDraft({...draft,price:v})} placeholder="1499" type="number"/><Field label="Original price" value={draft.originalPrice} onChange={v=>setDraft({...draft,originalPrice:v})} placeholder="2999" type="number"/></div><label className="field"><span>Description</span><textarea value={draft.description} onChange={e=>setDraft({...draft,description:e.target.value})} placeholder="Short product description"/></label><label className="field"><span>Affiliate link</span><input value={draft.affiliateUrl} onChange={e=>setDraft({...draft,affiliateUrl:e.target.value})} placeholder="https://your-affiliate-link.example/..."/></label><div className="field"><span>Product images <em>Maximum 4 · JPG, PNG, WEBP, GIF · 5MB each</em></span><div className="image-slots">{[0,1,2,3].map(i=><div className="slot" key={i}>{draft.images[i]?<><img src={draft.images[i]} alt=""/><button type="button" onClick={()=>setDraft({...draft,images:draft.images.filter((_,idx)=>idx!==i)})}>×</button></>:<><ImagePlus size={22}/><small>Image {i+1}</small></>}</div>)}</div><label className="upload-btn"><UploadCloud size={18}/><span>Choose images</span><input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={upload}/></label></div><div className="publish-row"><label className="switchline"><input type="checkbox" checked={draft.status==='Published'} onChange={e=>setDraft({...draft,status:e.target.checked?'Published':'Draft'})}/><span>Publish now</span></label><button className="primary-btn" disabled={busy}>{busy?'Saving…':editing==='new'?'Publish product':'Save changes'}</button></div></form></div>}
+
+function Field({label,value,onChange,placeholder,type='text'}){return <label className="field"><span>{label}</span><input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}/></label>}
+function Stat({label,value}){return <div className="stat"><span>{label}</span><strong>{value}</strong></div>}
 createRoot(document.getElementById('root')).render(<App/>);
