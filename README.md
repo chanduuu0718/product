@@ -23,35 +23,66 @@ A full-stack affiliate product publishing portal designed for Instagram traffic.
 - Search products.
 - Copy public product links.
 - Affiliate click tracking.
+- Password-change API is included for the Cloudflare deployment.
 
-## Run locally
+## Free production deployment
 
-1. Install Node.js 20+.
-2. Copy `.env.example` to `.env`.
-3. Set a strong `JWT_SECRET` and an admin password hash.
-4. Install dependencies: `npm install`.
-5. Build: `npm run build`.
-6. Start: `npm start`.
-7. Open `http://localhost:3000` for the public page.
-8. Open `http://localhost:3000/#admin` for the admin portal.
+The recommended zero-cost architecture is **Cloudflare Workers + D1 + R2**:
 
-For development, use `npm run dev` to start Vite and the API together.
+- Workers serves the React/Vite site and API.
+- D1 stores products, clicks and the admin account.
+- R2 stores uploaded product images.
+- No Render persistent disk is required.
 
-## Environment
+Cloudflare's current Free limits include 100,000 Worker requests/day, D1 with 5 million rows read/day, 100,000 rows written/day and 5 GB total account storage, plus R2's free Standard tier of 10 GB-month storage, 1 million Class A operations/month and 10 million Class B operations/month. Static assets are free and unlimited. These limits are usage limits; exceeding them can stop free-tier requests or require an upgrade. See the Cloudflare pricing documentation for current limits.
 
-`ADMIN_USER` controls the admin username. `ADMIN_PASSWORD_HASH` is a bcrypt hash of the admin password. `JWT_SECRET` must be a long random secret in production. Never commit `.env` or real credentials.
+### One-time setup
 
-`APP_DATA_DIR` controls where SQLite and uploaded images are stored. Locally it defaults to `./data`; in the included Render deployment blueprint it is `/var/data` on a persistent disk.
+1. Create/sign in to a Cloudflare account.
+2. On your Windows PC, install Node.js 20+.
+3. In PowerShell, clone the repository and enter it:
+   `git clone https://github.com/chanduuu0718/product.git`
+   `cd product`
+4. Log in to Cloudflare:
+   `npx wrangler login`
+5. Create the D1 database:
+   `npx wrangler d1 create upcha-products`
+6. Copy the `database_id` returned by Wrangler into `wrangler.jsonc`, replacing `REPLACE_WITH_D1_DATABASE_ID`.
+7. Create the R2 bucket:
+   `npx wrangler r2 bucket create upcha-product-images`
+8. Initialize the database schema:
+   `npx wrangler d1 execute upcha-products --remote --file=./schema.sql`
+9. Set the admin bootstrap password as a Cloudflare secret. Do not put the password in GitHub:
+   `npx wrangler secret put ADMIN_BOOTSTRAP_PASSWORD`
+10. Set a separate random session secret:
+   `npx wrangler secret put SESSION_SECRET`
+11. Build and deploy:
+   `npm install`
+   `npm run cf:deploy`
+12. Wrangler will print the public `workers.dev` URL. Open `<your-url>/#admin` to sign in.
 
-## Production deployment
+The first admin account is created automatically from `ADMIN_USER` (default `admin`) and `ADMIN_BOOTSTRAP_PASSWORD`. The password is stored as a salted PBKDF2 hash in D1, not as plaintext. After signing in, use the password-change API if you add a UI for it; changing the secret alone does not overwrite an existing admin account.
 
-The repository includes `render.yaml` for a single-service Render deployment. It builds the Vite app, starts the Express server, exposes `/api/health` for health checks, and mounts persistent storage for the SQLite database and uploaded images.
+### Important free-tier note
 
-1. Push the repository to GitHub.
-2. In Render, create a new Blueprint and select this repository. Render will read `render.yaml`.
-3. Before the first deploy, set `ADMIN_PASSWORD_HASH` to a bcrypt hash for the password you want to use. Do not put the plaintext password or its hash into GitHub.
-4. Deploy. Render provides the public HTTPS URL.
-5. Open `<your-render-url>/#admin` to manage products.
-6. Share `<your-render-url>/?code=PRODUCTCODE` in Instagram.
+As of September 1, 2026, Cloudflare enforces D1's Free daily row-read and row-write limits. If those limits are exceeded, D1 requests fail until the daily reset. citeturn0search6
 
-For the included persistent-disk configuration, the service uses `/var/data` for `products.db` and `uploads/`. Back up this storage before making major production changes.
+### Local development
+
+The existing Express + SQLite version is still kept for local development:
+
+1. Copy `.env.example` to `.env`.
+2. Set a strong `JWT_SECRET` and `ADMIN_PASSWORD_HASH`.
+3. Run `npm install`.
+4. Run `npm run dev`.
+5. Open `http://localhost:3000` or `http://localhost:3000/#admin`.
+
+The Cloudflare Worker is in `worker/index.js`, the D1 schema is `schema.sql`, and the deployment configuration is `wrangler.jsonc`.
+
+## Security
+
+Never commit passwords, API tokens, Cloudflare secrets, `.env` files, D1 data, uploaded images, or `.dev.vars` to GitHub. The repository's `.gitignore` excludes local data and Wrangler state.
+
+## Existing Render deployment
+
+`render.yaml` and the Express server remain in the repository for users who later choose paid persistent hosting. They are not required for the free Cloudflare deployment.
