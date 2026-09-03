@@ -1,0 +1,28 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "upcha-product",
+  "main": "./worker/index.js",
+  "compatibility_date": "2026-09-04",
+  "assets": {
+    "directory": "./dist/",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/images/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "upcha-products",
+      "database_id": "REPLACE_WITH_D1_DATABASE_ID"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "IMAGES",
+      "bucket_name": "upcha-product-images"
+    }
+  ],
+  "vars": {
+    "ADMIN_USER": "admin"
+  }
+}
